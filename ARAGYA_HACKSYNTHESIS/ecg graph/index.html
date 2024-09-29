@@ -1,0 +1,203 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>ECG Monitor</title>
+    <style>
+        /* General Reset */
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+            font-family: 'Poppins', sans-serif;
+        }
+
+        /* Body Styling */
+        body {
+            background: linear-gradient(135deg, rgba(24, 24, 24, 0.8), rgba(0, 0, 0, 0.9));
+            color: #ffffff;
+            height: 100vh;
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            flex-direction: column;
+        }
+
+        /* Container */
+        .container {
+            width: 80%;
+            max-width: 800px;
+            padding: 20px;
+            border-radius: 20px;
+            box-shadow: 0 15px 30px rgba(0, 0, 0, 0.5);
+        }
+
+        /* Header */
+        .header {
+            text-align: center;
+            margin-bottom: 20px;
+        }
+
+        /* Graph Container */
+        .graph-container {
+            width: 100%;
+            height: 400px;
+        }
+
+        canvas {
+            background: #222;
+            border-radius: 10px;
+            height: 100%;
+        }
+
+        /* Prediction Section */
+        .prediction {
+            margin-top: 20px;
+            text-align: center;
+            font-size: 1.2rem;
+        }
+
+        /* Button */
+        button {
+            margin-top: 10px;
+            background: #16E085;
+            border: none;
+            border-radius: 30px;
+            padding: 10px 20px;
+            font-size: 1rem;
+            color: white;
+            cursor: pointer;
+            transition: all 0.3s ease;
+        }
+
+        button:hover {
+            background: #12B673;
+            transform: scale(1.05);
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <header class="header">
+            <h1>ECG Monitor</h1>
+            <button id="check-ecg">Start ECG</button>
+        </header>
+
+        <section class="graph-container">
+            <canvas id="ecg-graph" width="800" height="400"></canvas>
+        </section>
+
+        <div class="prediction" id="prediction-text"></div> <!-- Initially empty -->
+    </div>
+
+    <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+    <script>
+        const ctx = document.getElementById('ecg-graph').getContext('2d');
+        const dataPoints = [];
+        const maxDataPoints = 400; // Total number of points
+        let chart;
+        let currentTime = 0; // For x-axis
+        let intervalId;
+        let verdictDisplayed = false;
+
+        // Function to generate synthetic ECG data with variability
+        function generateECGData() {
+            const base = Math.sin(currentTime / 2) * 5; // Adjusted base for more frequent waves
+            const randomDisturbance = (Math.random() * 4) - 2; // Random variation between -2 and 2
+            const spike = (Math.random() > 0.8 ? (Math.random() * 5 + 5) : (Math.random() * -5 - 5)); // Random spikes
+            const y = base + randomDisturbance + spike; // Combine base, disturbance, and spikes
+
+            currentTime += 0.5; // Increment time for smooth graph
+            return { x: currentTime, y: Math.max(y, -20) }; // Ensure y is above -20 for visibility
+        }
+
+        // Function to update the chart
+        function updateChart() {
+            const newPoint = generateECGData();
+            dataPoints.push(newPoint);
+
+            // Keep only the most recent points
+            if (dataPoints.length > maxDataPoints) {
+                dataPoints.shift();
+            }
+
+            // Create or update the chart
+            if (!chart) {
+                chart = new Chart(ctx, {
+                    type: 'line',
+                    data: {
+                        datasets: [{
+                            label: 'ECG',
+                            data: dataPoints,
+                            borderColor: 'rgba(255, 255, 255, 1)',
+                            borderWidth: 2,
+                            fill: false,
+                            lineTension: 0, // No smoothing for spiky effect
+                        }],
+                    },
+                    options: {
+                        scales: {
+                            x: {
+                                type: 'linear',
+                                position: 'bottom',
+                                ticks: {
+                                    color: '#ffffff',
+                                    stepSize: 2, // Adjusted for more density
+                                },
+                                min: 0,
+                                max: currentTime + 20, // Dynamically update max based on current time
+                            },
+                            y: {
+                                min: -30, // Adjusted for more space
+                                max: 30, // Adjusted for more space
+                                ticks: {
+                                    color: '#ffffff',
+                                },
+                            },
+                        },
+                        plugins: {
+                            legend: {
+                                display: false,
+                            },
+                        },
+                        animation: false,
+                        responsive: true,
+                        maintainAspectRatio: false,
+                    },
+                });
+            } else {
+                chart.data.datasets[0].data = dataPoints;
+                chart.update();
+            }
+
+            // Show verdict after 20 seconds
+            if (!verdictDisplayed && currentTime >= 20) { // Show verdict after 20 seconds
+                document.getElementById('prediction-text').innerText = "Your heart is healthy!";
+                verdictDisplayed = true; // Ensure it's only displayed once
+            }
+        }
+
+        // Function to scroll the graph
+        function scrollGraph() {
+            // Shift all points to the left
+            for (let i = 0; i < dataPoints.length; i++) {
+                dataPoints[i].x -= 0.5; // Adjust this value for how fast the graph moves
+            }
+            // Update the chart to reflect the scroll
+            chart.data.datasets[0].data = dataPoints;
+            chart.update();
+        }
+
+        document.getElementById('check-ecg').addEventListener('click', () => {
+            if (intervalId) clearInterval(intervalId); // Clear any existing interval
+            intervalId = setInterval(() => {
+                updateChart();
+                scrollGraph();
+            }, 200); // Update the chart and scroll every 200 ms (0.2 seconds)
+            verdictDisplayed = false; // Reset the display flag when starting
+            document.getElementById('prediction-text').innerText = ""; // Clear previous text
+        });
+    </script>
+</body>
+</html>
